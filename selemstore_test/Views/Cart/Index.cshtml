@@ -1,0 +1,190 @@
+﻿@model List<CartItem>
+
+<div class="container mt-5">
+    <h2 class="text-center">🛒 سلة المشتريات</h2>
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info text-center">
+            <p>🛍️ سلة المشتريات فارغة.</p>
+            <a href="/" class="btn btn-primary">🛒 متابعة التسوق</a>
+        </div>
+    }
+    else
+    {
+        <table class="table table-bordered text-center align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>📷 الصورة</th>
+                    <th>🛍️ اسم المنتج</th>
+                    <th>💰 السعر</th>
+                    <th>📏 المقاس</th>
+                    <th>🎨 اللون</th>
+                    <th>🔢 العدد</th>
+                    <th>💵 الإجمالي</th>
+                    <th>❌ إزالة</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model)
+                {
+                    decimal totalItemPrice = item.Quantity * item.Product.Sale_Price.GetValueOrDefault();
+
+                    <tr id="row-@item.ProductId-@item.SizeId-@item.ColorId"
+                        data-product-id="@item.ProductId" data-size-id="@item.SizeId" data-color-id="@item.ColorId">
+
+                        <td>
+                            <img src="@(string.IsNullOrEmpty(item.Product?.MainImage) ? "/images/default.png" : item.Product.MainImage)"
+                                 alt="@(item.Product?.Name ?? "غير متوفر")"
+                                 class="img-thumbnail" style="width: 80px; height: 80px;" />
+                        </td>
+
+                        <td>@(item.Product?.Name ?? "غير متوفر")</td>
+
+                        <td class="text-success fw-bold price">@item.Product?.Sale_Price?.ToString("N2") ج.م</td>
+
+                        <td>@(string.IsNullOrEmpty(item.Size) ? "غير محدد" : item.Size)</td>
+
+                        <td>@(string.IsNullOrEmpty(item.Color) ? "غير محدد" : item.Color)</td>
+
+                        <!-- إدخال يدوي للكمية -->
+                        <td>
+                            <input type="number" class="form-control text-center quantity-input"
+                                   value="@item.Quantity" min="1" style="width: 70px;" />
+                        </td>
+
+                        <td class="fw-bold total-item-price text-success">@totalItemPrice.ToString("N2") ج.م</td>
+
+                        <td>
+                            <button class="btn btn-danger btn-sm remove-item"
+                                    data-product-id="@item.ProductId" data-size-id="@item.SizeId" data-color-id="@item.ColorId">
+                                🗑️ إزالة
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot class="bg-light fw-bold">
+                <tr>
+                    <td colspan="5" class="text-end">🔢 إجمالي عدد القطع:</td>
+                    <td id="totalQuantity" class="text-primary">0</td>
+                    <td id="totalPrice" class="text-success">0.00 ج.م</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="text-end mt-3">
+            <a asp-action="Checkout" class="btn btn-success btn-lg">✅ إتمام الشراء</a>
+        </div>
+    }
+</div>
+
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        updateTotals(); // تحديث الإجماليات عند تحميل الصفحة
+        attachRemoveItemEvents(); // التأكد من أن أزرار الحذف تعمل عند تحميل الصفحة
+
+        document.querySelectorAll(".quantity-input").forEach(input => {
+            input.addEventListener("change", async function () {
+                let row = this.closest("tr");
+                let productId = row.dataset.productId;
+                let sizeId = row.dataset.sizeId;
+                let colorId = row.dataset.colorId;
+                let quantity = parseInt(this.value);
+
+                if (quantity < 1 || isNaN(quantity)) {
+                    this.value = 1;
+                    quantity = 1;
+                }
+
+                let formData = new FormData();
+                formData.append("productId", productId);
+                formData.append("sizeId", sizeId);
+                formData.append("colorId", colorId);
+                formData.append("quantity", quantity);
+
+                try {
+                    let response = await fetch("/Cart/UpdateQuantity", {
+                        method: "POST",
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        let data = await response.json();
+                        if (data.success) {
+                            updateRowTotal(row);
+                            updateTotals();
+                        } else {
+                            alert(data.message);
+                        }
+                    }
+                } catch (error) {
+                    console.error("❌ خطأ في تحديث العدد:", error);
+                }
+            });
+        });
+
+        function updateRowTotal(row) {
+            let quantity = parseInt(row.querySelector(".quantity-input").value);
+            let price = parseFloat(row.querySelector(".price").textContent.replace(" ج.م", "").trim());
+            let totalItemPrice = quantity * price;
+            row.querySelector(".total-item-price").textContent = totalItemPrice.toFixed(2) + " ج.م";
+        }
+
+        function updateTotals() {
+            let totalPrice = 0;
+            let totalQuantity = 0;
+
+            document.querySelectorAll("tbody tr").forEach(row => {
+                let quantity = parseInt(row.querySelector(".quantity-input").value);
+                let price = parseFloat(row.querySelector(".price").textContent.replace(" ج.م", "").trim());
+                totalPrice += quantity * price;
+                totalQuantity += quantity;
+            });
+
+            document.getElementById("totalQuantity").textContent = totalQuantity;
+            document.getElementById("totalPrice").textContent = totalPrice.toFixed(2) + " ج.م";
+        }
+
+        function attachRemoveItemEvents() {
+            document.querySelectorAll(".remove-item").forEach(button => {
+                button.addEventListener("click", async function () {
+                    let row = this.closest("tr");
+                    let productId = row.dataset.productId;
+                    let sizeId = row.dataset.sizeId;
+                    let colorId = row.dataset.colorId;
+
+                    let formData = new FormData();
+                    formData.append("productId", productId);
+                    formData.append("sizeId", sizeId);
+                    formData.append("colorId", colorId);
+
+                    try {
+                        let response = await fetch("/Cart/RemoveFromCart", {
+                            method: "POST",
+                            body: formData
+                        });
+
+                        if (response.ok) {
+                            let data = await response.json();
+                            if (data.success) {
+                                row.remove();
+                                updateTotals();
+                            } else {
+                                alert(data.message);
+                            }
+                        }
+                    } catch (error) {
+                        console.error("❌ خطأ في الإزالة:", error);
+                    }
+                });
+            });
+        }
+    });
+</script>
+
+
+
+

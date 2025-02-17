@@ -1,0 +1,170 @@
+﻿@model Product
+@using System.Text.Json
+
+<div class="container mt-5">
+    <div class="row">
+        <!-- صورة المنتج -->
+        <div class="col-md-6">
+            <div class="product-main-image mb-4 text-center">
+                <img src="@Model.MainImage" alt="@Model.Name" class="img-fluid rounded shadow" style="max-height: 450px; object-fit: cover;" />
+            </div>
+
+            <!-- معرض الصور المصغرة -->
+            <div class="product-thumbnails d-flex justify-content-center">
+                @foreach (var img in Model.ProductImages)
+                {
+                    <img src="@img.ImageUrl" class="img-thumbnail mx-2" style="width: 90px; height: 90px; object-fit: cover; border: 2px solid #ddd; transition: border 0.3s;"
+                         onmouseover="this.style.border='2px solid #28a745'"
+                         onmouseout="this.style.border='2px solid #ddd'" />
+                }
+            </div>
+        </div>
+
+        <!-- تفاصيل المنتج -->
+        <div class="col-md-6">
+            <h2 class="mb-3 fw-bold">@Model.Name</h2>
+            <h4 class="text-danger mb-4">السعر: @Model.Sale_Price.GetValueOrDefault().ToString("C")</h4>
+
+            <form id="productForm">
+                <input type="hidden" id="productId" value="@Model.ProductId" />
+
+                <!-- عرض المقاسات المتاحة -->
+                <div class="form-group mb-4">
+                    <label class="form-label fw-bold">اختر مقاس:</label>
+                    <div class="d-flex flex-wrap">
+                        @foreach (var size in Model.ProductSizeColors.Select(psc => psc.Size).Distinct())
+                        {
+                            <button type="button" class="btn btn-outline-primary me-2 mb-2 size-btn" data-size="@size.SizeId">
+                                @size.Value
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <!-- عرض الألوان المتاحة لكل مقاس -->
+                <div class="form-group mb-4">
+                    <label class="form-label fw-bold">الألوان المتاحة:</label>
+                    <div id="colorsContainer" class="d-flex flex-wrap">
+                        <!-- سيتم تحديث هذه القائمة عند اختيار المقاس -->
+                    </div>
+                </div>
+
+                <!-- اختيار الكمية -->
+                <div class="form-group mb-4">
+                    <label class="form-label fw-bold">الكمية:</label>
+                    <input type="number" id="quantityInput" value="1" class="form-control w-50" min="1" disabled />
+                    <small class="text-muted d-block mt-1">الحد الأقصى: <span id="maxQuantity">--</span> قطعة</small>
+                </div>
+
+                <!-- زر الإضافة للسلة -->
+                <button type="button" id="addToCartBtn" class="btn btn-success btn-lg w-100" disabled>
+                    <i class="bi bi-cart-plus"></i> أضف إلى السلة
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- نافذة Pop-up عند الإضافة للسلة -->
+<div id="cartPopup" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تمت الإضافة إلى السلة!</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p>تمت إضافة المنتج إلى السلة بنجاح.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">استكمال التسوق</button>
+                <a href="@Url.Action("Index", "Cart")" class="btn btn-success">الذهاب إلى السلة</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            var productSizeColors = @Html.Raw(JsonSerializer.Serialize(Model.ProductSizeColors.Select(psc => new
+            {
+                sizeId = psc.Size.SizeId,
+                colorId = psc.Color.ColorId,
+                colorHex = psc.Color.HexCode,
+                colorName = psc.Color.ColorName,
+                quantity = psc.Quantity
+            
+            })));
+
+            // عند اختيار مقاس
+            $('.size-btn').click(function () {
+                $('.size-btn').removeClass('btn-primary').addClass('btn-outline-primary');
+                $(this).removeClass('btn-outline-primary').addClass('btn-primary');
+
+                var selectedSizeId = $(this).data('size');
+                var filteredColors = productSizeColors.filter(psc => psc.sizeId == selectedSizeId);
+                $('#colorsContainer').html('');
+
+                if (filteredColors.length === 0) {
+                    $('#colorsContainer').html('<p class="text-muted">لا توجد ألوان متاحة لهذا المقاس.</p>');
+                } else {
+                    filteredColors.forEach(psc => {
+                        var colorBox = `
+                            <div class="text-center me-3">
+                                <div class="color-box" style="width: 40px; height: 40px; background-color: ${psc.colorHex}; border: 2px solid #ddd; cursor: pointer; border-radius: 50%;"
+                                    data-color-id="${psc.colorId}" data-quantity="${psc.quantity}">
+                                </div>
+                                <small>${psc.colorName} (${psc.quantity} قطعة)</small>
+                            </div>
+                        `;
+                        $('#colorsContainer').append(colorBox);
+                    });
+                }
+
+                $('#quantityInput').attr('disabled', true);
+                $('#addToCartBtn').attr('disabled', true);
+            });
+           
+
+
+            // عند اختيار لون
+            $(document).on('click', '.color-box', function () {
+                $('.color-box').css('border', '2px solid #ddd').removeAttr('data-selected');
+                $(this).css('border', '3px solid #28a745').attr('data-selected', 'true');
+
+                var maxQuantity = $(this).data('quantity');
+                $('#maxQuantity').text(maxQuantity);
+                $('#quantityInput').attr('max', maxQuantity).attr('disabled', false).val(1);
+                $('#addToCartBtn').attr('disabled', false);
+            });
+
+            // عند الضغط على زر الإضافة للسلة
+            $("#addToCartBtn").click(function () {
+                var productId = $("#productId").val();
+                var quantity = $("#quantityInput").val();
+                var sizeId = $(".size-btn.btn-primary").data("size");
+                var colorId = $(".color-box[data-selected='true']").data("color-id");
+
+                if (!sizeId || !colorId) {
+                    alert("يرجى اختيار المقاس واللون.");
+                    return;
+                }
+
+                $.ajax({
+                    url: '@Url.Action("AddToCart", "Cart")',
+                    type: 'POST',
+                    data: { productId, quantity, sizeId, colorId },
+                    success: function (response) {
+                        if (response.success) {
+                            $("#cartPopup").modal("show");
+                        } else {
+                            alert(response.message);
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+}

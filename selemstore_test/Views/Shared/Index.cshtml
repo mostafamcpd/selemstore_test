@@ -1,0 +1,127 @@
+﻿@model List<Category>
+
+<div class="container py-5">
+    <!-- نموذج البحث والفلترة -->
+    <form method="get" asp-action="Index" class="mb-4 d-flex align-items-center">
+        <input type="text" name="searchTerm" value="@ViewBag.SearchTerm" placeholder="ابحث باسم المنتج أو تفاصيله" class="form-control w-50 me-2" />
+
+        <select name="categoryId" class="form-control w-25 me-2">
+            <option value="">كل الفئات</option>
+            @foreach (var category in Model)
+            {
+                if (ViewBag.SelectedCategoryId == category.CategoryId)
+                {
+                    <option value="@category.CategoryId" selected>@category.Name</option>
+                }
+                else
+                {
+                    <option value="@category.CategoryId">@category.Name</option>
+                }
+            }
+        </select>
+
+        <button type="submit" class="btn btn-primary">بحث</button>
+    </form>
+
+    @if (Model != null && Model.Any())
+    {
+        @foreach (var category in Model)
+        {
+            <!-- عنوان الفئة -->
+            <div class="bg-light p-3 rounded shadow-sm mb-4">
+                <h2 class="text-center text-primary">@category.Name</h2>
+            </div>
+
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+                @if (category.Products != null && category.Products.Any())
+                {
+                    @foreach (var product in category.Products)
+                    {
+                        <div class="col">
+                            <div class="card h-100 border-0 shadow product-card">
+                                <!-- صورة المنتج -->
+                                <img src="@product.MainImage" class="card-img-top img-fluid rounded-top" alt="@product.Name" style="height: 220px; object-fit: cover;">
+
+                                <div class="card-body d-flex flex-column text-center">
+                                    <!-- اسم المنتج -->
+                                    <h5 class="card-title fw-semibold mb-2">@product.Name</h5>
+
+                                    <!-- سعر المنتج -->
+                                    <p class="card-text text-success fw-bold fs-5">@product.Sale_Price.GetValueOrDefault().ToString("C")</p>
+
+                                    <!-- أزرار التفاصيل والإضافة للسلة -->
+                                    <div class="d-flex justify-content-between">
+                                        <a href="@Url.Action("ProductDetails", "Product", new { id = product.ProductId })" class="btn btn-outline-primary w-50 me-1">
+                                            تفاصيل المنتج
+                                        </a>
+
+                                        <button type="button" class="btn btn-success w-50 ms-1 addToCartBtn" data-product-id="@product.ProductId">
+                                            أضف إلى السلة
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="col-12">
+                        <div class="alert alert-warning text-center" role="alert">
+                            لا توجد منتجات في هذه الفئة.
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+    else
+    {
+        <div class="alert alert-info text-center" role="alert">
+            لا توجد فئات متاحة.
+        </div>
+    }
+</div>
+
+<!-- سكربت لإضافة المنتج إلى السلة -->
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <script>
+        $(document).ready(function () {
+            $('.addToCartBtn').click(function () {
+                var productId = $(this).data('product-id');
+
+                $.ajax({
+                    url: '@Url.Action("AddToCart", "Cart")',
+                    type: 'POST',
+                    data: { productId: productId, quantity: 1 },  // بإمكانك تعديل الكمية حسب الحاجة
+                    success: function (response) {
+                        if (response.success) {
+                            Swal.fire({
+                                title: 'تمت الإضافة!',
+                                text: 'تمت إضافة المنتج إلى سلة المشتريات.',
+                                icon: 'success',
+                                showCancelButton: true,
+                                confirmButtonText: 'اذهب للسلة',
+                                cancelButtonText: 'متابعة التسوق'
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    window.location.href = '@Url.Action("Index", "Cart")';
+                                }
+                            });
+                        } else {
+                            Swal.fire('خطأ', response.message, 'error');
+                        }
+                    },
+                    error: function () {
+                        Swal.fire('خطأ', 'حدث خطأ أثناء إضافة المنتج للسلة.', 'error');
+                    }
+                });
+            });
+        });
+    </script>
+
+    <!-- مكتبة SweetAlert2 للرسائل المنبثقة -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+}

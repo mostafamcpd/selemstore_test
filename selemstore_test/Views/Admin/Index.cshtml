@@ -1,0 +1,39 @@
+﻿@{
+    Layout = "~/Views/Shared/AdminLayout.cshtml";
+}
+
+@{
+    ViewData["Title"] = "الرئيسية";
+}
+
+<div class="container">
+    <h2 class="mt-4">مرحبًا بك في لوحة التحكم</h2>
+    <p>هذه الصفحة الرئيسية للأدمن.</p>
+
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">المستخدمون</h5>
+                    <p class="card-text">عدد المستخدمين: 120</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">الطلبات</h5>
+                    <p class="card-text">الطلبات الجديدة: 15</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title">المنتجات</h5>
+                    <p class="card-text">عدد المنتجات: 340</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
